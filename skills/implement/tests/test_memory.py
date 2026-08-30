@@ -725,7 +725,10 @@ class TestCLI(CLIBase):
         # memory.py: ... message via MemoryHelperError, not a traceback.
         # After 0o700 dir hardening, chmod(dir, 0o555) is no longer a valid
         # way to force lock-open failure (create_dir restores owner-write).
-        # Patch os.open for the lock path instead.
+        # Mock must run in-process: patching os.open in the parent does not
+        # affect a subprocess.run child. Call _acquire_lock / main() here.
+        import contextlib
+        import io
         from unittest import mock
 
         spec = json.dumps({"patterns": [{"category": "C", "description": "x"}]})
@@ -734,7 +737,7 @@ class TestCLI(CLIBase):
         lock_paths = [entry for entry in memory_dir.iterdir() if entry.suffix == ".lock"]
         self.assertTrue(lock_paths)
         lock_path = lock_paths[0].resolve()
-        real_open = os.open
+        real_open = memory.os.open
 
         def open_side_effect(path, flags, mode=0o777, *args, **kwargs):
             try:
@@ -745,10 +748,33 @@ class TestCLI(CLIBase):
                 raise OSError(13, "Permission denied")
             return real_open(path, flags, mode, *args, **kwargs)
 
-        with mock.patch("os.open", side_effect=open_side_effect):
-            rc, out, err = _run_helper(self.repo_a, "update", stdin=spec, env=self.env)
+        with mock.patch.object(memory.os, "open", side_effect=open_side_effect):
+            with self.assertRaises(memory.MemoryHelperError) as cm:
+                memory._acquire_lock(lock_path)
+        self.assertIn("could not open lock file", str(cm.exception))
+
+        spec_path = self.test_root / "lock-open-fail-spec.json"
+        spec_path.write_text(spec, encoding="utf-8")
+        old_home = os.environ.get("HOME")
+        old_cwd = os.getcwd()
+        try:
+            os.environ["HOME"] = str(self.home)
+            os.chdir(self.repo_a)
+            stderr = io.StringIO()
+            with mock.patch.object(memory.os, "open", side_effect=open_side_effect):
+                with contextlib.redirect_stderr(stderr):
+                    rc = memory.main(["update", "--file", str(spec_path)])
+            err = stderr.getvalue()
+        finally:
+            os.chdir(old_cwd)
+            if old_home is None:
+                os.environ.pop("HOME", None)
+            else:
+                os.environ["HOME"] = old_home
+
         self.assertNotEqual(rc, 0)
         self.assertIn("memory.py:", err)
+        self.assertIn("could not open lock file", err)
         self.assertNotIn("Traceback", err)
 
     def test_corrupted_memory_file_clean_message(self):
