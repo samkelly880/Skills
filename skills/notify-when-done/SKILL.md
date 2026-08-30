@@ -1,6 +1,6 @@
 ---
 name: notify-when-done
-description: Post a Google Chat notification at the end of a task. Triggers when the user says "notify me when done", "ping me when finished", "send a chat when ready", asks for a webhook ping, or when another skill (e.g. pr-and-review) finishes. Reads the webhook URL from the GOOGLE_CHAT_WEBHOOK environment variable, then falls back to ~/.claude/.env, then the project .env. Use $ARGUMENTS as the message body if provided; otherwise compose a short summary of what was just done. Supports --optional flag to silently skip if webhook is not configured.
+description: Post a Google Chat notification at the end of a task. Triggers when the user says "notify me when done", "ping me when finished", "send a chat when ready", asks for a webhook ping, or when another skill (e.g. pr-and-review) finishes. Reads the webhook URL from the GOOGLE_CHAT_WEBHOOK environment variable, then falls back to ~/.claude/.env, then the project .env only when TRUST_PROJECT_WEBHOOK=1. Use $ARGUMENTS as the message body if provided; otherwise compose a short summary of what was just done. Supports --optional flag to silently skip if webhook is not configured.
 ---
 
 # notify-when-done
