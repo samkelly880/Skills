@@ -340,7 +340,11 @@ def memory_paths(*, create_dir: bool = False) -> dict[str, Path]:
     base = home / ".grok" / MEMORY_DIR_NAME
     if create_dir:
         try:
-            base.mkdir(parents=True, exist_ok=True)
+            base.mkdir(parents=True, exist_ok=True, mode=0o700)
+            try:
+                os.chmod(base, 0o700)
+            except OSError:
+                pass
         except OSError as exc:
             raise WorkspaceIdError(f"could not create memory directory {base}: {exc}")
     workspace_id = get_workspace_id()
