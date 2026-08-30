@@ -1,7 +1,7 @@
 ---
 name: audit
 description: >
-  Comprehensive project-audit orchestration: inspect first, then only relevant auditors (/code-review, /security-engineer, /dependency-auditor, /performance-benchmarker, /accessibility-auditor, /api-tester, /reality-checker). Combine findings, dedupe, prioritize by severity/impact; separate confirmed vs recommendations vs N/A. Do not modify the project. Use when the user runs /audit, or wants a multi-area project audit / health check.
+  Comprehensive project-audit orchestration: inspect first, then only relevant auditors (/review, /security-engineer, /dependency-auditor, /performance-benchmarker, /accessibility-auditor, /api-tester, /reality-checker). Combine findings, dedupe, prioritize by severity/impact; separate confirmed vs recommendations vs N/A. Do not modify the project. Use when the user runs /audit, or wants a multi-area project audit / health check.
 argument-hint: <feature, bug, project, or brief>
 metadata:
   short-description: "Selective multi-area project audit (read-only)"
@@ -27,7 +27,7 @@ Identify project type (web, API, game, library, infra) and attack/risk surfaces.
 ### 2. Conditional auditors
 | If relevant… | Skill |
 |--------------|-------|
-| Implementation quality | `/code-review` |
+| Implementation quality | `/review` |
 | App security | `/security-engineer` |
 | Dependencies / supply chain | `/dependency-auditor` |
 | Measurable perf concerns | `/performance-benchmarker` |

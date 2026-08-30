@@ -77,7 +77,7 @@ When delegating to a high-level workflow that already covers AI eval, **do not**
 ### Implementation & verify
 - Code/project changes with clear requirements → `/implement`.
 - After code changes, when meaningful verification is possible → `/test`.
-- Non-trivial changes / quality-architecture-security-maintainability risk → `/code-review`.
+- Non-trivial changes / quality-architecture-security-maintainability risk → `/review`.
 - Substantial work, important fixes, major features, or before "complete" → `/reality-checker` (challenge that it *works*, don't trust looks).
 
 ### AI evaluation — `/promptfoo` (conditional)
@@ -140,7 +140,7 @@ Route only on **explicit naming** or a **clear domain match**. Do not invoke the
 4. Relevant specialists/design skills when needed.
 5. `/implement`.
 6. `/test`.
-7. `/code-review` if non-trivial.
+7. `/review` if non-trivial.
 8. `/reality-checker` before claiming substantial completion.
 9. `/pullrequest` if substantial enough to review/merge.
 
@@ -154,7 +154,7 @@ When the feature is an AI system / LLM / agent / RAG / prompt-based / AI API / A
 4. `/implement`.
 5. `/test` for conventional verification.
 6. **`/promptfoo`** when the AI behavior itself needs evaluation (quality/correctness/reliability/security evidence).
-7. `/code-review` for non-trivial changes.
+7. `/review` for non-trivial changes.
 8. `/reality-checker` before declaring substantial work complete (include Promptfoo evidence when it was run).
 9. `/pullrequest` when the change is substantial enough.
 
@@ -164,7 +164,7 @@ For security-sensitive AI systems, prefer including Promptfoo **red-team** cover
 
 ## Default lifecycle — bugs
 
-Investigate before modifying. Prefer `/fix` (or `/debugger` when available). Then `/test`, `/code-review`, `/reality-checker` as warranted. No speculative edits.
+Investigate before modifying. Prefer `/fix` (or `/debugger` when available). Then `/test`, `/review`, `/reality-checker` as warranted. No speculative edits.
 
 If the bug is in AI behavior (prompt/agent/RAG/etc.) and eval evidence would help, include `/promptfoo` (baseline → after fix) unless `/fix` already covered it.
 

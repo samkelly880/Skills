@@ -42,6 +42,8 @@ Search (project then user), in order:
 
 ### Install (do not vendor the repo)
 
+**Harness library caution:** If you install skills from the shared Skills git repo via bulk `rsync skills/ ~/.grok/skills/`, **exclude `impeccable/`** so you do not replace a full upstream Impeccable skill (with `reference/` + `scripts/`) with this thin T3 stub. Prefer project-scoped official install for playbooks.
+
 From the **user’s project root** (preferred):
 
 ```bash

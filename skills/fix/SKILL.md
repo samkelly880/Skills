@@ -1,7 +1,7 @@
 ---
 name: fix
 description: >
-  Bug-fixing orchestration: reproduce first; use /debugger if available for root cause; /test for failing reproduction; /bugfix for the smallest fix; then /test, /code-review, /reality-checker. Invoke security/performance/API/DB specialists only when evidence warrants. Never make speculative changes. Use when the user runs /fix, or wants a disciplined investigate-fix-verify bug workflow.
+  Bug-fixing orchestration: reproduce first; use /debugger if available for root cause; /test for failing reproduction; /bugfix for the smallest fix; then /test, /review, /reality-checker. Invoke security/performance/API/DB specialists only when evidence warrants. Never make speculative changes. Use when the user runs /fix, or wants a disciplined investigate-fix-verify bug workflow.
 argument-hint: <feature, bug, project, or brief>
 metadata:
   short-description: "Investigate → fix → verify bug orchestration"
@@ -34,7 +34,7 @@ Fix bugs with **evidence**, not guess-and-thrash.
 
 ### 4. Verify
 - **`/test`** again (must go green for the repro).
-- **`/code-review`** on the fix diff.
+- **`/review`** on the fix diff.
 - **`/reality-checker`** on the claim "bug is fixed."
 
 ### 5. Conditional specialists

@@ -8,6 +8,7 @@ User-level agent skills for Grok Build and Claude Code (dual-write).
 skills/<skill-name>/SKILL.md
 skills/<skill-name>/scripts/     # optional
 skills/<skill-name>/references/  # optional
+skills/shared/                  # personas + host helpers for design/review/execute-plan/pr-babysit
 ```
 
 ## Install
@@ -15,9 +16,15 @@ skills/<skill-name>/references/  # optional
 Copy or symlink into both harnesses (same content):
 
 ```bash
-# from this repo root
-rsync -a skills/ ~/.grok/skills/
-rsync -a skills/ ~/.claude/skills/
+# from this repo root — exclude impeccable so a full upstream Impeccable
+# install (npx impeccable install) is not overwritten by this thin stub
+rsync -a --exclude 'impeccable/' skills/ ~/.grok/skills/
+rsync -a --exclude 'impeccable/' skills/ ~/.claude/skills/
+
+# Optional: install the thin Impeccable integration stub only if you do not
+# already have the official Impeccable skill/playbooks:
+#   rsync -a skills/impeccable/ ~/.grok/skills/impeccable/
+# Prefer project-scoped official Impeccable: npx impeccable install --providers=grok,claude --scope=project
 ```
 
 Or link individual skills:

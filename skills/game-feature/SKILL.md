@@ -1,7 +1,7 @@
 ---
 name: game-feature
 description: >
-  Game-development feature orchestration: /grill-me for player experience; only relevant design skills (/mechanic, /balance, /enemy, /boss, /economy, /level-designer, /lore, /narrative-designer, /technical-artist, /game-audio); then /implement, /test, /playtest when applicable, /code-review, /reality-checker. Do not force irrelevant design stages. Use when the user runs /game-feature, or wants a full game feature from design through verification.
+  Game-development feature orchestration: /grill-me for player experience; only relevant design skills (/mechanic, /balance, /enemy, /boss, /economy, /level-designer, /lore, /narrative-designer, /technical-artist, /game-audio); then /implement, /test, /playtest when applicable, /review, /reality-checker. Do not force irrelevant design stages. Use when the user runs /game-feature, or wants a full game feature from design through verification.
 argument-hint: <feature, bug, project, or brief>
 metadata:
   short-description: "Game feature: grill → design → build → verify"
@@ -17,7 +17,7 @@ Deliver a game feature with **selective** design, then build and verify.
 2. Invoke only relevant design specialists — not the whole roster.
 3. No code during design unless explicitly allowed.
 4. Simple features may skip most design skills.
-5. Verify with `/test`, `/playtest` when feel/fun matters, `/code-review`, `/reality-checker`.
+5. Verify with `/test`, `/playtest` when feel/fun matters, `/review`, `/reality-checker`.
 
 ## Pipeline
 
@@ -39,7 +39,7 @@ Player experience + acceptance criteria.
 | SFX/music systems | `/game-audio` |
 
 ### 3. Build & verify
-- `/implement` → `/test` → `/playtest` (if applicable) → `/code-review` → `/reality-checker`
+- `/implement` → `/test` → `/playtest` (if applicable) → `/review` → `/reality-checker`
 
 ## Output
 

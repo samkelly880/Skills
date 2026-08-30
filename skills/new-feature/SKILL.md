@@ -1,7 +1,7 @@
 ---
 name: new-feature
 description: >
-  Orchestrate a feature from idea to verified implementation: /grill-me first, then only relevant skills (/scope, /architect, /backend-architect, /database-engineer, game-design specialists as needed), then /implement, /test, /code-review, /reality-checker. Do not invoke irrelevant skills. Do not modify code during discovery/planning unless explicitly instructed. Use when the user runs /new-feature, or wants end-to-end feature delivery from idea through verification.
+  Orchestrate a feature from idea to verified implementation: /grill-me first, then only relevant skills (/scope, /architect, /backend-architect, /database-engineer, game-design specialists as needed), then /implement, /test, /review, /reality-checker. Do not invoke irrelevant skills. Do not modify code during discovery/planning unless explicitly instructed. Use when the user runs /new-feature, or wants end-to-end feature delivery from idea through verification.
 argument-hint: <feature, bug, project, or brief>
 metadata:
   short-description: "Idea → verified feature orchestration"
@@ -17,7 +17,7 @@ Take a feature from idea to **verified** implementation by chaining only the ski
 2. **Invoke specialists only when relevant** — never because they exist.
 3. Treat `$ARGUMENTS` / the user brief as the starting claim; refine via `/grill-me`.
 4. Stop and confirm the plan with the user after discovery/design if major ambiguity remains — then implement.
-5. "Done" requires `/test` + `/code-review` + `/reality-checker`, not just commits.
+5. "Done" requires `/test` + `/review` + `/reality-checker`, not just commits.
 
 ## Pipeline
 
@@ -47,7 +47,7 @@ Skip any row that does not apply. Do not run the whole game-design suite for a p
 
 ### 4. Verify
 - **`/test`** — failing-test-first or solid regression coverage for the behavior.
-- **`/code-review`** — implementation quality on the change.
+- **`/review`** — implementation quality on the change.
 - **`/reality-checker`** — challenge "it's done"; require evidence.
 
 ## Output

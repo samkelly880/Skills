@@ -1,7 +1,7 @@
 ---
 name: optimize-feature
 description: >
-  Performance-improvement orchestration: measure/reproduce first; /performance-benchmarker for baseline and bottleneck; /optimize for improvements; re-benchmark; /test for regressions; /code-review for significant changes; /technical-artist for rendering/assets/shaders/VFX. Require measured evidence — never accept 'looks faster'. Use when the user runs /optimize-feature, or wants a disciplined performance improvement workflow.
+  Performance-improvement orchestration: measure/reproduce first; /performance-benchmarker for baseline and bottleneck; /optimize for improvements; re-benchmark; /test for regressions; /review for significant changes; /technical-artist for rendering/assets/shaders/VFX. Require measured evidence — never accept 'looks faster'. Use when the user runs /optimize-feature, or wants a disciplined performance improvement workflow.
 argument-hint: <feature, bug, project, or brief>
 metadata:
   short-description: "Measure → optimize → re-measure"
@@ -26,7 +26,7 @@ metadata:
 3. `/optimize` — appropriate improvements.
 4. `/performance-benchmarker` again — before/after.
 5. `/test` — correctness regressions.
-6. `/code-review` if the change is non-trivial.
+6. `/review` if the change is non-trivial.
 7. `/technical-artist` when graphics-pipeline related.
 
 ## Output
