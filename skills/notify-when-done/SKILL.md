@@ -1,6 +1,6 @@
 ---
 name: notify-when-done
-description: Post a Google Chat notification at the end of a task. Triggers when the user says "notify me when done", "ping me when finished", "send a chat when ready", asks for a webhook ping, or when another skill (e.g. pr-and-review) finishes. Reads the webhook URL from the GOOGLE_CHAT_WEBHOOK environment variable, then falls back to ~/.claude/.env, then the project .env only when TRUST_PROJECT_WEBHOOK=1. Use $ARGUMENTS as the message body if provided; otherwise compose a short summary of what was just done. Supports --optional flag to silently skip if webhook is not configured.
+description: Post a Google Chat notification at the end of a task. Triggers when the user says "notify me when done", "ping me when finished", "send a chat when ready", asks for a webhook ping, or when another skill (e.g. /pullrequest) finishes. Reads the webhook URL from the GOOGLE_CHAT_WEBHOOK environment variable, then falls back to ~/.claude/.env or ~/.grok/.env, then the project .env only when TRUST_PROJECT_WEBHOOK=1. Use $ARGUMENTS as the message body if provided; otherwise compose a short summary of what was just done. Supports --optional flag to silently skip if webhook is not configured.
 ---
 
 # notify-when-done
@@ -9,7 +9,7 @@ Send a concise completion notification to a Google Chat space via an incoming we
 
 ## When to use
 - The user explicitly asked to be notified at the end of this task.
-- Another skill (typically `pr-and-review`) reaches its completion step.
+- Another skill (typically `/pullrequest`) reaches its completion step.
 - A long-running operation (PR review wait, CI watch, deploy) is wrapping up.
 
 Do **not** invoke this skill mid-task, only when the work is genuinely done (or has hit a terminal failure that the user should know about).
@@ -23,7 +23,7 @@ Do **not** invoke this skill mid-task, only when the work is genuinely done (or 
 Resolve in this order; use the first value that is non-empty:
 
 1. `$GOOGLE_CHAT_WEBHOOK` from the current shell environment.
-2. `GOOGLE_CHAT_WEBHOOK=...` line in `~/.claude/.env`.
+2. `GOOGLE_CHAT_WEBHOOK=...` line in `~/.claude/.env` or `~/.grok/.env`.
 3. `GOOGLE_CHAT_WEBHOOK=...` line in the project `.env` (current working directory) **only if** `TRUST_PROJECT_WEBHOOK=1` is set in the environment.
 
 If none of those is set:
@@ -41,8 +41,8 @@ fi
 
 get_webhook() {
   if [ -n "$GOOGLE_CHAT_WEBHOOK" ]; then printf '%s' "$GOOGLE_CHAT_WEBHOOK"; return 0; fi
-  # Always allow the user harness env file.
-  files="$HOME/.claude/.env"
+  # Always allow user harness env files (Claude and/or Grok).
+  files="$HOME/.claude/.env $HOME/.grok/.env"
   # Only read project .env when explicitly trusted (forks/clones can plant webhooks).
   if [ "${TRUST_PROJECT_WEBHOOK:-0}" = "1" ]; then
     files="$files $PWD/.env"
@@ -76,7 +76,7 @@ validate_webhook() {
 validate_webhook "$WEBHOOK" || exit 2
 ```
 
-In **untrusted clones** (forks, third-party repos), do not set `TRUST_PROJECT_WEBHOOK=1`. Prefer `~/.claude/.env` / `$GOOGLE_CHAT_WEBHOOK` only unless the user explicitly confirms they trust that repo's `.env`.
+In **untrusted clones** (forks, third-party repos), do not set `TRUST_PROJECT_WEBHOOK=1`. Prefer `~/.claude/.env` / `~/.grok/.env` / `$GOOGLE_CHAT_WEBHOOK` only unless the user explicitly confirms they trust that repo's `.env`.
 
 ## Composing the message
 
