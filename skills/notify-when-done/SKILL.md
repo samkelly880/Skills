@@ -24,7 +24,7 @@ Resolve in this order; use the first value that is non-empty:
 
 1. `$GOOGLE_CHAT_WEBHOOK` from the current shell environment.
 2. `GOOGLE_CHAT_WEBHOOK=...` line in `~/.claude/.env`.
-3. `GOOGLE_CHAT_WEBHOOK=...` line in the project `.env` (current working directory).
+3. `GOOGLE_CHAT_WEBHOOK=...` line in the project `.env` (current working directory) **only if** `TRUST_PROJECT_WEBHOOK=1` is set in the environment.
 
 If none of those is set:
 - **With `--optional` flag**: silently exit without sending a notification.
@@ -41,7 +41,13 @@ fi
 
 get_webhook() {
   if [ -n "$GOOGLE_CHAT_WEBHOOK" ]; then printf '%s' "$GOOGLE_CHAT_WEBHOOK"; return 0; fi
-  for f in "$HOME/.claude/.env" "$PWD/.env"; do
+  # Always allow the user harness env file.
+  files="$HOME/.claude/.env"
+  # Only read project .env when explicitly trusted (forks/clones can plant webhooks).
+  if [ "${TRUST_PROJECT_WEBHOOK:-0}" = "1" ]; then
+    files="$files $PWD/.env"
+  fi
+  for f in $files; do
     if [ -r "$f" ]; then
       v=$(grep -E '^[[:space:]]*GOOGLE_CHAT_WEBHOOK=' "$f" \
             | tail -n1 | sed -E 's/^[[:space:]]*GOOGLE_CHAT_WEBHOOK=//; s/^["'\'']//; s/["'\'']$//')
@@ -70,7 +76,7 @@ validate_webhook() {
 validate_webhook "$WEBHOOK" || exit 2
 ```
 
-In **untrusted clones** (forks, third-party repos), prefer `~/.claude/.env` only — do not read the project `.env` for the webhook URL unless the user explicitly confirms they trust that repo.
+In **untrusted clones** (forks, third-party repos), do not set `TRUST_PROJECT_WEBHOOK=1`. Prefer `~/.claude/.env` / `$GOOGLE_CHAT_WEBHOOK` only unless the user explicitly confirms they trust that repo's `.env`.
 
 ## Composing the message
 

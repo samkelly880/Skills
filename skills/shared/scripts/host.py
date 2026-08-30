@@ -86,9 +86,28 @@ def cmd_scratch(_args: argparse.Namespace) -> int:
 
 
 def cmd_cleanup(args: argparse.Namespace) -> int:
+    """Delete files only if they resolve under this user's scratch_dir()."""
+    allowed_root = scratch_dir().resolve()
     for raw in args.paths:
         try:
-            Path(raw).unlink()
+            target = Path(raw).expanduser().resolve(strict=False)
+        except OSError as exc:
+            print(f"host.py: could not resolve {raw}: {exc}", file=sys.stderr)
+            continue
+        try:
+            target.relative_to(allowed_root)
+        except ValueError:
+            print(
+                f"host.py: refusing to remove {raw} "
+                f"(not under scratch dir {allowed_root})",
+                file=sys.stderr,
+            )
+            continue
+        try:
+            if target.is_file() or target.is_symlink():
+                target.unlink()
+            elif target.exists():
+                print(f"host.py: refusing to remove non-file {raw}", file=sys.stderr)
         except FileNotFoundError:
             pass
         except OSError as exc:

@@ -27,9 +27,12 @@ rsync -a --exclude 'impeccable/' skills/ ~/.claude/skills/
 # Prefer project-scoped official Impeccable: npx impeccable install --providers=grok,claude --scope=project
 ```
 
-Or link individual skills:
+Or link individual skills (also link `shared/` whenever you use
+`design`, `review`, `execute-plan`, or `pr-babysit`):
 
 ```bash
+ln -s "$(pwd)/skills/shared" ~/.grok/skills/shared
+ln -s "$(pwd)/skills/shared" ~/.claude/skills/shared
 ln -s "$(pwd)/skills/workflow" ~/.grok/skills/workflow
 ln -s "$(pwd)/skills/workflow" ~/.claude/skills/workflow
 ```
