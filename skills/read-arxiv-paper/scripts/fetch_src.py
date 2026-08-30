@@ -21,10 +21,13 @@ _ID_RE = re.compile(
     re.I,
 )
 
+# Soft cap — arXiv TeX sources are typically small; refuse surprising payloads.
+_MAX_DOWNLOAD_BYTES = 100 * 1024 * 1024  # 100 MiB
+_GZIP_MAGIC = b"\x1f\x8b"
+
 
 def extract_arxiv_id(text: str) -> str:
     text = text.strip()
-    # Direct id
     m = _ID_RE.search(text.replace(" ", ""))
     if not m:
         raise SystemExit(f"Could not parse arXiv id from: {text!r}")
@@ -32,8 +35,14 @@ def extract_arxiv_id(text: str) -> str:
 
 
 def cache_key(arxiv_id: str) -> str:
-    # Drop version suffix for stable cache dirs: 2601.07372v2 -> 2601.07372
-    return re.sub(r"v\d+$", "", arxiv_id, flags=re.I).replace("/", "_")
+    """Stable filesystem key that preserves version and maps '/' → '_'.
+
+    Examples:
+      2601.07372      -> 2601.07372
+      2601.07372v2    -> 2601.07372v2
+      hep-th/9901001  -> hep-th_9901001
+    """
+    return arxiv_id.replace("/", "_")
 
 
 def source_url(arxiv_id: str) -> str:
@@ -49,17 +58,29 @@ def legacy_nanochat_paths(key: str) -> Tuple[Path, Path]:
     return root / f"{key}.tar.gz", root / key
 
 
-def download(url: str, dest: Path) -> None:
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    tmp = dest.with_suffix(dest.suffix + ".partial")
+def _safe_tar_filter(member: tarfile.TarInfo, dest_dir: Path) -> tarfile.TarInfo:
+    """Fail-closed member filter for Python versions without tarfile.data_filter."""
+    name = member.name
+    if not name or name.startswith("/"):
+        raise SystemExit(f"refusing absolute tar path: {name!r}")
+    # Reject path traversal
+    target = (dest_dir / name).resolve()
     try:
-        with urllib.request.urlopen(url, timeout=120) as resp, open(tmp, "wb") as out:
-            shutil.copyfileobj(resp, out)
-        tmp.replace(dest)
-    except Exception:
-        if tmp.exists():
-            tmp.unlink(missing_ok=True)
-        raise
+        target.relative_to(dest_dir.resolve())
+    except ValueError as exc:
+        raise SystemExit(f"refusing tar path escape: {name!r}") from exc
+    if member.issym() or member.islnk():
+        link = member.linkname or ""
+        if link.startswith("/") or ".." in Path(link).parts:
+            raise SystemExit(f"refusing unsafe tar link: {name!r} -> {link!r}")
+        # For hard/symlinks, ensure resolved link stays under dest when relative
+        if not link.startswith("/"):
+            link_target = (dest_dir / Path(name).parent / link).resolve()
+            try:
+                link_target.relative_to(dest_dir.resolve())
+            except ValueError as exc:
+                raise SystemExit(f"refusing tar link escape: {name!r} -> {link!r}") from exc
+    return member
 
 
 def unpack_tarball(tarball: Path, dest_dir: Path) -> None:
@@ -68,15 +89,86 @@ def unpack_tarball(tarball: Path, dest_dir: Path) -> None:
     dest_dir.mkdir(parents=True, exist_ok=True)
     try:
         with tarfile.open(tarball, "r:*") as tar:
-            # Python 3.12+ supports filter=; use if available
-            try:
-                tar.extractall(dest_dir, filter=tarfile.data_filter)
-            except (TypeError, AttributeError):
-                tar.extractall(dest_dir)
-    except Exception:
-        # Clean partial unpack
+            if hasattr(tarfile, "data_filter"):
+                try:
+                    tar.extractall(dest_dir, filter=tarfile.data_filter)
+                except Exception as exc:
+                    # data_filter raises OutsideDestinationError / FilterError
+                    # on unsafe members — surface as clean SystemExit.
+                    raise SystemExit(f"refusing unsafe tar member: {exc}") from exc
+            else:
+                # Fail-closed on older Pythons — never bare extractall.
+                for member in tar.getmembers():
+                    _safe_tar_filter(member, dest_dir)
+                    tar.extract(member, dest_dir)
+    except SystemExit:
         if dest_dir.exists():
             shutil.rmtree(dest_dir, ignore_errors=True)
+        raise
+    except Exception:
+        if dest_dir.exists():
+            shutil.rmtree(dest_dir, ignore_errors=True)
+        raise
+
+
+def download(url: str, dest: Path) -> None:
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    tmp = dest.with_suffix(dest.suffix + ".partial")
+    try:
+        with urllib.request.urlopen(url, timeout=120) as resp:
+            length_hdr = resp.headers.get("Content-Length")
+            if length_hdr is not None:
+                try:
+                    length = int(length_hdr)
+                except ValueError:
+                    length = None
+                else:
+                    if length > _MAX_DOWNLOAD_BYTES:
+                        raise SystemExit(
+                            f"refusing download: Content-Length {length} exceeds "
+                            f"{_MAX_DOWNLOAD_BYTES} bytes"
+                        )
+
+            # Read a prefix to validate gzip/tar magic, then stream the rest.
+            first = resp.read(2)
+            if len(first) < 2:
+                raise SystemExit("refusing download: empty response")
+            # arXiv /src/ is normally gzip-compressed tar (1f 8b). Also allow
+            # uncompressed tar (ustar at offset 257) by buffering if needed.
+            buffered = first + resp.read(512)
+            is_gzip = buffered.startswith(_GZIP_MAGIC)
+            is_tar = b"ustar" in buffered[257:262] if len(buffered) >= 262 else False
+            if not (is_gzip or is_tar):
+                # Some endpoints may still be gzip without us seeing more; if
+                # Content-Type hints tar/gzip, allow. Else refuse HTML/JSON errors.
+                ctype = (resp.headers.get("Content-Type") or "").lower()
+                if "html" in ctype or "json" in ctype or "text/plain" in ctype:
+                    raise SystemExit(
+                        f"refusing download: unexpected Content-Type {ctype!r}"
+                    )
+                if not is_gzip:
+                    raise SystemExit(
+                        "refusing download: payload is not gzip or tar (bad magic)"
+                    )
+
+            written = 0
+            with open(tmp, "wb") as out:
+                out.write(buffered)
+                written += len(buffered)
+                while True:
+                    chunk = resp.read(1024 * 256)
+                    if not chunk:
+                        break
+                    written += len(chunk)
+                    if written > _MAX_DOWNLOAD_BYTES:
+                        raise SystemExit(
+                            f"refusing download: exceeded {_MAX_DOWNLOAD_BYTES} bytes"
+                        )
+                    out.write(chunk)
+        tmp.replace(dest)
+    except Exception:
+        if tmp.exists():
+            tmp.unlink(missing_ok=True)
         raise
 
 
@@ -142,11 +234,9 @@ def main(argv: Optional[list] = None) -> int:
         return 0
 
     if existing_tar and not args.force:
-        # Reuse legacy or current tarball path
         src_tar = existing_tar
         print(f"using_existing_tarball={src_tar}")
         if src_tar.resolve() != tarball.resolve():
-            # Copy into default cache for consistency
             tarball.parent.mkdir(parents=True, exist_ok=True)
             if not tarball.exists():
                 shutil.copy2(src_tar, tarball)
@@ -160,6 +250,9 @@ def main(argv: Optional[list] = None) -> int:
         except urllib.error.HTTPError as exc:
             print(f"download_failed HTTP {exc.code}: {exc.reason}", file=sys.stderr)
             return 1
+        except SystemExit as exc:
+            print(f"download_failed: {exc}", file=sys.stderr)
+            return 1
         except Exception as exc:  # noqa: BLE001
             print(f"download_failed: {exc}", file=sys.stderr)
             return 1
@@ -171,7 +264,14 @@ def main(argv: Optional[list] = None) -> int:
         if args.force and unpacked.exists():
             shutil.rmtree(unpacked)
         print(f"unpacking_to={unpacked}")
-        unpack_tarball(tarball, unpacked)
+        try:
+            unpack_tarball(tarball, unpacked)
+        except SystemExit as exc:
+            print(f"unpack_failed: {exc}", file=sys.stderr)
+            return 1
+        except Exception as exc:  # noqa: BLE001
+            print(f"unpack_failed: {exc}", file=sys.stderr)
+            return 1
         print("unpack_ok")
 
     return 0

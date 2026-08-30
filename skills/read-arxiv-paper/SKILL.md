@@ -30,31 +30,38 @@ summary under the current project's `./knowledge/`.
 
 ### 1) Normalize to source URL
 
-Prefer the helper (deterministic):
+Prefer the helper (deterministic). Skill dir is whichever harness installed it:
 
 ```bash
-python3 ~/.grok/skills/read-arxiv-paper/scripts/fetch_src.py --id-or-url "<input>" --print-only
+SKILL_DIR="${HOME}/.grok/skills/read-arxiv-paper"    # or ~/.claude/skills/read-arxiv-paper
+python3 "$SKILL_DIR/scripts/fetch_src.py" --id-or-url "<input>" --print-only
 ```
 
 Rules if doing it by hand:
 
-- Extract id like `2601.07372` or `2601.07372v1` (strip version for cache key if you prefer; keep version in metadata).
+- Extract id like `2601.07372`, `2601.07372v2`, or legacy `hep-th/9901001`.
 - Source URL: `https://arxiv.org/src/{id}` (also accept `www.arxiv.org`).
+- Cache key = id with `/` → `_` (**version suffix kept**, so `v1` and `v2` do not collide).
 
 **Always use `/src/`, never the PDF**, for reading.
 
 ### 2) Download + unpack (cached)
 
 ```bash
-python3 ~/.grok/skills/read-arxiv-paper/scripts/fetch_src.py --id-or-url "<input>"
+python3 "$SKILL_DIR/scripts/fetch_src.py" --id-or-url "<input>"
+# cheap tests (no network): python3 "$SKILL_DIR/scripts/test_fetch_src.py"
 ```
 
-Default cache:
+Default cache (matches `cache_key()`):
 
-- tarball: `~/.cache/arxiv/{arxiv_id}.tar.gz`
-- unpack: `~/.cache/arxiv/{arxiv_id}/`
+- tarball: `~/.cache/arxiv/{cache_key}.tar.gz`
+- unpack: `~/.cache/arxiv/{cache_key}/`
 
-Skip re-download if the tarball already exists (helper does this).
+Examples: `2601.07372v2` → `~/.cache/arxiv/2601.07372v2/`; `hep-th/9901001` →
+`~/.cache/arxiv/hep-th_9901001/`.
+
+Skip re-download if that key’s tarball already exists (helper does this). Use
+`--force` to refresh.
 
 Legacy nanochat cache `~/.cache/nanochat/knowledge/` may still hold older
 downloads — check there only if the default cache misses and the user is in a

@@ -37,8 +37,7 @@ ln -s "$(pwd)/skills/workflow" ~/.grok/skills/workflow
 ln -s "$(pwd)/skills/workflow" ~/.claude/skills/workflow
 ```
 
-Some project-specific skills (e.g. Gardenbound content authors) stay in their
-repos under `.grok/skills/` / `.claude/skills/` and are not duplicated here.
+Project-scoped skills (e.g. MiroFish, Nanochat) live in their own repos under `.grok/skills/` / `.claude/skills/` and are not duplicated here unless promoted.
 
 ## Included skills
 
