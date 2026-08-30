@@ -21,8 +21,9 @@ _ID_RE = re.compile(
     re.I,
 )
 
-# Soft cap — arXiv TeX sources are typically small; refuse surprising payloads.
-_MAX_DOWNLOAD_BYTES = 100 * 1024 * 1024  # 100 MiB
+# Soft caps — arXiv TeX sources are typically small; refuse surprising payloads.
+_MAX_DOWNLOAD_BYTES = 100 * 1024 * 1024  # 100 MiB compressed
+_MAX_UNPACK_BYTES = 500 * 1024 * 1024  # 500 MiB uncompressed total
 _GZIP_MAGIC = b"\x1f\x8b"
 
 
@@ -63,23 +64,21 @@ def _safe_tar_filter(member: tarfile.TarInfo, dest_dir: Path) -> tarfile.TarInfo
     name = member.name
     if not name or name.startswith("/"):
         raise SystemExit(f"refusing absolute tar path: {name!r}")
-    # Reject path traversal
+    # Only regular files and directories (parity with tarfile.data_filter).
+    if not (member.isfile() or member.isdir()):
+        raise SystemExit(
+            f"refusing special tar member type {member.type!r}: {name!r}"
+        )
     target = (dest_dir / name).resolve()
     try:
         target.relative_to(dest_dir.resolve())
     except ValueError as exc:
         raise SystemExit(f"refusing tar path escape: {name!r}") from exc
     if member.issym() or member.islnk():
-        link = member.linkname or ""
-        if link.startswith("/") or ".." in Path(link).parts:
-            raise SystemExit(f"refusing unsafe tar link: {name!r} -> {link!r}")
-        # For hard/symlinks, ensure resolved link stays under dest when relative
-        if not link.startswith("/"):
-            link_target = (dest_dir / Path(name).parent / link).resolve()
-            try:
-                link_target.relative_to(dest_dir.resolve())
-            except ValueError as exc:
-                raise SystemExit(f"refusing tar link escape: {name!r} -> {link!r}") from exc
+        # Unreachable if we only allow file/dir, but keep belt-and-braces.
+        raise SystemExit(f"refusing tar link member: {name!r}")
+    if member.size < 0:
+        raise SystemExit(f"refusing negative-size member: {name!r}")
     return member
 
 
@@ -89,16 +88,33 @@ def unpack_tarball(tarball: Path, dest_dir: Path) -> None:
     dest_dir.mkdir(parents=True, exist_ok=True)
     try:
         with tarfile.open(tarball, "r:*") as tar:
+            members = tar.getmembers()
+            total = 0
+            for member in members:
+                if member.isfile():
+                    total += max(member.size, 0)
+                    if total > _MAX_UNPACK_BYTES:
+                        raise SystemExit(
+                            f"refusing unpack: uncompressed size exceeds "
+                            f"{_MAX_UNPACK_BYTES} bytes"
+                        )
             if hasattr(tarfile, "data_filter"):
+                filter_errors = (
+                    getattr(tarfile, "OutsideDestinationError", ()),
+                    getattr(tarfile, "FilterError", ()),
+                    getattr(tarfile, "AbsolutePathError", ()),
+                    getattr(tarfile, "SpecialFileError", ()),
+                    getattr(tarfile, "AbsoluteLinkError", ()),
+                    getattr(tarfile, "LinkOutsideDestinationError", ()),
+                )
+                # Filter out empty tuples from missing attrs
+                filter_errors = tuple(e for e in filter_errors if e)
                 try:
                     tar.extractall(dest_dir, filter=tarfile.data_filter)
-                except Exception as exc:
-                    # data_filter raises OutsideDestinationError / FilterError
-                    # on unsafe members — surface as clean SystemExit.
+                except filter_errors as exc:
                     raise SystemExit(f"refusing unsafe tar member: {exc}") from exc
             else:
-                # Fail-closed on older Pythons — never bare extractall.
-                for member in tar.getmembers():
+                for member in members:
                     _safe_tar_filter(member, dest_dir)
                     tar.extract(member, dest_dir)
     except SystemExit:
@@ -129,27 +145,22 @@ def download(url: str, dest: Path) -> None:
                             f"{_MAX_DOWNLOAD_BYTES} bytes"
                         )
 
-            # Read a prefix to validate gzip/tar magic, then stream the rest.
             first = resp.read(2)
             if len(first) < 2:
                 raise SystemExit("refusing download: empty response")
-            # arXiv /src/ is normally gzip-compressed tar (1f 8b). Also allow
-            # uncompressed tar (ustar at offset 257) by buffering if needed.
             buffered = first + resp.read(512)
             is_gzip = buffered.startswith(_GZIP_MAGIC)
             is_tar = b"ustar" in buffered[257:262] if len(buffered) >= 262 else False
             if not (is_gzip or is_tar):
-                # Some endpoints may still be gzip without us seeing more; if
-                # Content-Type hints tar/gzip, allow. Else refuse HTML/JSON errors.
                 ctype = (resp.headers.get("Content-Type") or "").lower()
+                # Refuse obvious non-archive error bodies; magic is authoritative.
                 if "html" in ctype or "json" in ctype or "text/plain" in ctype:
                     raise SystemExit(
                         f"refusing download: unexpected Content-Type {ctype!r}"
                     )
-                if not is_gzip:
-                    raise SystemExit(
-                        "refusing download: payload is not gzip or tar (bad magic)"
-                    )
+                raise SystemExit(
+                    "refusing download: payload is not gzip or tar (bad magic)"
+                )
 
             written = 0
             with open(tmp, "wb") as out:
@@ -166,7 +177,8 @@ def download(url: str, dest: Path) -> None:
                         )
                     out.write(chunk)
         tmp.replace(dest)
-    except Exception:
+    except BaseException:
+        # Includes SystemExit policy refusals — always drop partials.
         if tmp.exists():
             tmp.unlink(missing_ok=True)
         raise
