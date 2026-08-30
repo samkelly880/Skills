@@ -721,31 +721,35 @@ class TestCLI(CLIBase):
             os.umask(old_umask)
 
     def test_lock_file_open_failure_clean_message(self):
-        # Round 2 [General #71]: an OSError on os.open (e.g., parent dir not
-        # writable) must surface as a clean memory.py: ... message via
-        # MemoryHelperError, not as a Python traceback.
-        # First create the directory by running update once.
+        # Round 2 [General #71]: an OSError on os.open must surface as a clean
+        # memory.py: ... message via MemoryHelperError, not a traceback.
+        # After 0o700 dir hardening, chmod(dir, 0o555) is no longer a valid
+        # way to force lock-open failure (create_dir restores owner-write).
+        # Patch os.open for the lock path instead.
+        from unittest import mock
+
         spec = json.dumps({"patterns": [{"category": "C", "description": "x"}]})
         _run_helper(self.repo_a, "update", stdin=spec, env=self.env)
         memory_dir = self.home / ".grok" / "implement-memory"
-        # Remove write/execute so a new os.open(O_CREAT) fails.
-        # NOTE: the lock file already exists from the previous update, so
-        # os.open with O_CREAT against an existing file in a 0o555 dir would
-        # actually still succeed (the file exists, no creation needed).
-        # Force the failure path by deleting the lock file first, then chmod.
-        for entry in memory_dir.iterdir():
-            if entry.suffix == ".lock":
-                entry.unlink()
-        old_mode = memory_dir.stat().st_mode
-        os.chmod(memory_dir, 0o555)
-        try:
+        lock_paths = [entry for entry in memory_dir.iterdir() if entry.suffix == ".lock"]
+        self.assertTrue(lock_paths)
+        lock_path = lock_paths[0].resolve()
+        real_open = os.open
+
+        def open_side_effect(path, flags, mode=0o777, *args, **kwargs):
+            try:
+                resolved = Path(path).resolve()
+            except OSError:
+                resolved = Path(path)
+            if resolved == lock_path:
+                raise OSError(13, "Permission denied")
+            return real_open(path, flags, mode, *args, **kwargs)
+
+        with mock.patch("os.open", side_effect=open_side_effect):
             rc, out, err = _run_helper(self.repo_a, "update", stdin=spec, env=self.env)
-            self.assertNotEqual(rc, 0)
-            # Must be a clean memory.py: error, not a traceback.
-            self.assertIn("memory.py:", err)
-            self.assertNotIn("Traceback", err)
-        finally:
-            os.chmod(memory_dir, old_mode)
+        self.assertNotEqual(rc, 0)
+        self.assertIn("memory.py:", err)
+        self.assertNotIn("Traceback", err)
 
     def test_corrupted_memory_file_clean_message(self):
         # An invalid-UTF-8 memory file (e.g., truncated mid-multibyte by an
