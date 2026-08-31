@@ -157,5 +157,39 @@ class TestDownloadGuards(unittest.TestCase):
             self.assertFalse(dest.exists())
 
 
+class TestRefreshInvalidatesUnpack(unittest.TestCase):
+    def test_main_reunpacks_after_new_tarball(self):
+        with tempfile.TemporaryDirectory() as td:
+            cache = Path(td)
+            key = "2601.07372"
+            tarball = cache / f"{key}.tar.gz"
+            unpacked = cache / key
+            # Stale unpack from a previous archive
+            unpacked.mkdir()
+            (unpacked / "old.tex").write_text("stale", encoding="utf-8")
+
+            # Fresh archive on disk (tarball was missing → download path).
+            # Patch download to write a new tar with main.tex.
+            def fake_download(url: str, dest: Path) -> None:
+                with tarfile.open(dest, "w:gz") as tar:
+                    info = tarfile.TarInfo(name="main.tex")
+                    data = b"fresh\n"
+                    info.size = len(data)
+                    tar.addfile(info, io.BytesIO(data))
+
+            with mock.patch.object(fetch_src, "download", side_effect=fake_download):
+                rc = fetch_src.main(
+                    [
+                        "--id-or-url",
+                        "2601.07372",
+                        "--cache-root",
+                        str(cache),
+                    ]
+                )
+            self.assertEqual(rc, 0)
+            self.assertTrue((unpacked / "main.tex").is_file())
+            self.assertFalse((unpacked / "old.tex").exists())
+
+
 if __name__ == "__main__":
     unittest.main()

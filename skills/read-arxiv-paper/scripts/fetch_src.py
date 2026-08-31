@@ -83,8 +83,17 @@ def _safe_tar_filter(member: tarfile.TarInfo, dest_dir: Path) -> tarfile.TarInfo
 
 
 def unpack_tarball(tarball: Path, dest_dir: Path) -> None:
+    """Extract ``tarball`` into ``dest_dir``.
+
+    Caller must ensure ``dest_dir`` does not already exist (or remove it first)
+    when the archive was refreshed; this function will not silently reuse a
+    stale tree.
+    """
     if dest_dir.exists():
-        return
+        raise SystemExit(
+            f"refusing unpack: destination already exists: {dest_dir} "
+            "(remove it or pass --force to refresh)"
+        )
     dest_dir.mkdir(parents=True, exist_ok=True)
     try:
         with tarfile.open(tarball, "r:*") as tar:
@@ -245,6 +254,7 @@ def main(argv: Optional[list] = None) -> int:
             print(f"existing_unpacked={existing_dir}")
         return 0
 
+    refreshed = False
     if existing_tar and not args.force:
         src_tar = existing_tar
         print(f"using_existing_tarball={src_tar}")
@@ -253,6 +263,7 @@ def main(argv: Optional[list] = None) -> int:
             if not tarball.exists():
                 shutil.copy2(src_tar, tarball)
                 print(f"copied_to={tarball}")
+                refreshed = True
         else:
             tarball = src_tar
     else:
@@ -269,11 +280,12 @@ def main(argv: Optional[list] = None) -> int:
             print(f"download_failed: {exc}", file=sys.stderr)
             return 1
         print("download_ok")
+        refreshed = True
 
-    if unpacked.is_dir() and not args.force:
+    if unpacked.is_dir() and not args.force and not refreshed:
         print(f"already_unpacked={unpacked}")
     else:
-        if args.force and unpacked.exists():
+        if unpacked.exists() and (args.force or refreshed):
             shutil.rmtree(unpacked)
         print(f"unpacking_to={unpacked}")
         try:

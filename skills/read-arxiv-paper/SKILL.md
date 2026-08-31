@@ -61,11 +61,11 @@ Examples: `2601.07372v2` → `~/.cache/arxiv/2601.07372v2/`; `hep-th/9901001` �
 `~/.cache/arxiv/hep-th_9901001/`.
 
 Skip re-download if that key’s tarball already exists (helper does this). Use
-`--force` to refresh.
+`--force` to refresh a key. A new download invalidates any existing unpack
+directory for that key so TeX contents stay in sync with the archive.
 
-Legacy nanochat cache `~/.cache/nanochat/knowledge/` may still hold older
-downloads — check there only if the default cache misses and the user is in a
-nanochat context.
+The helper also looks under `~/.cache/nanochat/knowledge/{cache_key}` when the
+default cache misses (legacy).
 
 ### 3) Locate the entrypoint
 
