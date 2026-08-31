@@ -70,8 +70,14 @@ default cache misses (legacy).
 ### 3) Locate the entrypoint
 
 In the unpacked dir, find the main TeX file (`main.tex`, `paper.tex`, or the
-`.tex` that `\input`/`\include`s the rest). Prefer the file named in
-`00README` / `Makefile` when present.
+`.tex` that `\input`/`\include`s the rest). Prefer an explicit pointer when
+present, in this order:
+
+1. `00README.json` (modern arXiv source metadata — look for the designated
+   toplevel / filename fields)
+2. Plain `00README` / `00README.XXX`
+3. `Makefile`
+4. Heuristic: `main.tex` / `paper.tex` / sole root `.tex`
 
 ### 4) Read the paper
 

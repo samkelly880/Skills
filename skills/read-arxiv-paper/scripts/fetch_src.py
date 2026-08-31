@@ -92,7 +92,7 @@ def unpack_tarball(tarball: Path, dest_dir: Path) -> None:
     if dest_dir.exists():
         raise SystemExit(
             f"refusing unpack: destination already exists: {dest_dir} "
-            "(remove it or pass --force to refresh)"
+            "(caller must remove it before unpacking a refreshed archive)"
         )
     dest_dir.mkdir(parents=True, exist_ok=True)
     try:
